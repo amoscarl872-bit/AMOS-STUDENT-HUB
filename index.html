@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>AMOS STUDENT HUB</title>
+
+    <meta
+        name="description"
+        content="AMOS STUDENT HUB - Personal academic management dashboard for a Kisii University Computer Science student."
+    >
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+</head>
+
+<body>
+
+<!-- =========================================================
+     LOGIN SCREEN
+========================================================= -->
+
+<div id="loginScreen">
+
+    <div class="login-card">
+
+        <div class="brand">
+            <div class="brand-logo">AS</div>
+
+            <div>
+                <h1>AMOS STUDENT HUB</h1>
+                <span>Kisii University • Computer Science</span>
+            </div>
+        </div>
+
+        <h2>Welcome back</h2>
+
+        <p class="login-description">
+            Your personal academic control centre for timetable,
+            classes, notes, resources, groups and university links.
+        </p>
+
+        <div id="loginError" class="login-error hidden"></div>
+
+        <form id="loginForm">
+
+            <div class="field">
+                <label for="loginUsername">
+                    Admission Number / Email
+                </label>
+
+                <input
+                    id="loginUsername"
+                    type="text"
+                    autocomplete="username"
+                    placeholder="IN13/06977/26"
+                    required
+                >
+            </div>
+
+            <div class="field">
+                <label for="loginPassword">
+                    Password
+                </label>
+
+                <div class="password-wrapper">
+
+                    <input
+                        id="loginPassword"
+                        type="password"
+                        autocomplete="current-password"
+                        placeholder="Enter password"
+                        required
+                    >
+
+                    <button
+                        type="button"
+                        class="show-password"
+                        id="togglePassword"
+                    >
+                        Show
+                    </button>
+
+                </div>
+            </div>
+
+            <button
+                type="submit"
+                class="primary-btn"
+            >
+                Sign in
+            </button>
+
+        </form>
+
+        <div class="login-hint">
+            <strong>Local dashboard:</strong>
+            this version stores your information in this browser.
+            It does not connect to Kisii University's private
+            authentication system.
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     MAIN APPLICATION
+========================================================= -->
+
+<div id="app" class="hidden">
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar" id="sidebar">
+
+        <div class="sidebar-brand">
+
+            <div class="brand-logo">
+                AS
+            </div>
+
+            <div>
+                <h2>AMOS HUB</h2>
+                <p>BSc Computer Science</p>
+            </div>
+
+        </div>
+
+
+        <div class="nav-section">
+            Main
+        </div>
+
+        <button
+            class="nav-link active"
+            data-section="dashboard"
+        >
+            <span class="nav-icon">⌂</span>
+            Dashboard
+        </button>
+
+        <button
+            class="nav-link"
+            data-section="timetable"
+        >
+            <span class="nav-icon">▦</span>
+            Timetable
+        </button>
+
+        <button
+            class="nav-link"
+            data-section="units"
+        >
+            <span class="nav-icon">▤</span>
+            My Units
+        </button>
+
+
+        <div class="nav-section">
+            Academic
+        </div>
+
+        <button
+            class="nav-link"
+            data-section="notes"
+        >
+            <span class="nav-icon">✎</span>
+            My Notes
+        </button>
+
+        <button
+            class="nav-link"
+            data-section="resources"
+        >
+            <span class="nav-icon">▣</span>
+            Resources
+        </button>
+
+        <button
+            class="nav-link"
+            data-section="transcripts"
+        >
+            <span class="nav-icon">▥</span>
+            Transcripts
+        </button>
+
+
+        <div class="nav-section">
+            Communication
+        </div>
+
+        <button
+            class="nav-link"
+            data-section="announcements"
+        >
+            <span class="nav-icon">!</span>
+            Announcements
+        </button>
+
+        <button
+            class="nav-link"
+            data-section="groups"
+        >
+            <span class="nav-icon">♟</span>
+            Groups
+        </button>
+
+
+        <div class="nav-section">
+            Account
+        </div>
+
+        <button
+            class="nav-link"
+            data-section="profile"
+        >
+            <span class="nav-icon">●</span>
+            My Profile
+        </button>
+
+        <button
+            class="nav-link"
+            data-section="settings"
+        >
+            <span class="nav-icon">⚙</span>
+            Settings
+        </button>
+
+
+        <div class="sidebar-bottom">
+
+            <button
+                class="nav-link"
+                id="logoutBtn"
+            >
+                <span class="nav-icon">↪</span>
+                Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <div style="display:flex;align-items:center;gap:12px;">
+
+                <button
+                    class="mobile-menu"
+                    id="mobileMenu"
+                    aria-label="Open menu"
+                >
+                    ☰
+                </button>
+
+                <div class="topbar-title">
+                    <h1 id="pageTitle">
+                        Dashboard
+                    </h1>
+
+                    <p>
+                        IN13/06977/26 • Year 1 • BSc Computer Science
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="topbar-actions">
+
+                <button
+                    class="icon-btn"
+                    id="themeToggle"
+                    title="Toggle theme"
+                >
+                    ◐
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <div class="content">
+
+            <!-- =================================================
+                 DASHBOARD
+            ================================================== -->
+
+            <section
+                id="dashboard"
+                class="page-section active"
+            >
+
+                <div class="welcome-card">
+
+                    <h2 id="welcomeText">
+                        Welcome, Amos
+                    </h2>
+
+                    <p>
+                        Keep your university life organised from one place.
+                    </p>
+
+                    <div
+                        class="date-display"
+                        id="currentDate"
+                    ></div>
+
+                </div>
+
+
+                <div class="stats-grid">
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">▦</div>
+
+                        <div
+                            class="stat-number"
+                            id="statClasses"
+                        >
+                            0
+                        </div>
+
+                        <div class="stat-label">
+                            Classes this week
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">▤</div>
+
+                        <div
+                            class="stat-number"
+                            id="statUnits"
+                        >
+                            7
+                        </div>
+
+                        <div class="stat-label">
+                            Current units
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">✎</div>
+
+                        <div
+                            class="stat-number"
+                            id="statNotes"
+                        >
+                            0
+                        </div>
+
+                        <div class="stat-label">
+                            Saved notes
+                        </div>
+
+                    </div>
+
+
+                    <div class="stat-card">
+
+                        <div class="stat-icon">!</div>
+
+                        <div
+                            class="stat-number"
+                            id="statAnnouncements"
+                        >
+                            0
+                        </div>
+
+                        <div class="stat-label">
+                            Announcements
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="dashboard-grid">
+
+                    <div class="card">
+
+                        <div class="card-title">
+
+                            <h3>
+                                Today's Classes
+                            </h3>
+
+                            <span id="todayName"></span>
+
+                        </div>
+
+                        <div id="todayClasses">
+                        </div>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="card-title">
+
+                            <h3>
+                                University Quick Links
+                            </h3>
+
+                        </div>
+
+                        <div class="quick-links">
+
+                            <a
+                                class="quick-link"
+                                href="https://elearning.kisiiuniversity.ac.ke/login/index.php"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <div class="quick-link-icon">🎓</div>
+
+                                <strong>
+                                    Kisii E-Learning
+                                </strong>
+
+                                <small>
+                                    LMS / online classes
+                                </small>
+
+                            </a>
+
+
+                            <a
+                                class="quick-link"
+                                href="https://cs-class-hub-tau.vercel.app"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <div class="quick-link-icon">💻</div>
+
+                                <strong>
+                                    CS Class Hub
+                                </strong>
+
+                                <small>
+                                    Class updates
+                                </small>
+
+                            </a>
+
+
+                            <a
+                                class="quick-link"
+                                href="https://kisiiuniversity.ac.ke"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <div class="quick-link-icon">🏫</div>
+
+                                <strong>
+                                    Kisii University
+                                </strong>
+
+                                <small>
+                                    Official website
+                                </small>
+
+                            </a>
+
+
+                            <button
+                                class="quick-link"
+                                data-section="resources"
+                                style="text-align:left;background:var(--surface);color:var(--text);"
+                            >
+                                <div class="quick-link-icon">📚</div>
+
+                                <strong>
+                                    Resources
+                                </strong>
+
+                                <small>
+                                    Study materials
+                                </small>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="card-title">
+
+                            <h3>
+                                Recent Announcements
+                            </h3>
+
+                            <button
+                                class="btn"
+                                data-section="announcements"
+                            >
+                                View all
+                            </button>
+
+                        </div>
+
+                        <div id="dashboardAnnouncements">
+                        </div>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="card-title">
+
+                            <h3>
+                                Next Class
+                            </h3>
+
+                        </div>
+
+                        <div id="nextClass">
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 TIMETABLE
+            ================================================== -->
+
+            <section
+                id="timetable"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>Class Timetable</h2>
+
+                        <p>
+                            IN13 Computer Science • August–December 2026
+                        </p>
+                    </div>
+
+                    <div class="actions">
+
+                        <button
+                            class="btn btn-primary"
+                            id="addClassBtn"
+                        >
+                            + Add Class
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="timetable-wrapper">
+
+                        <table class="timetable">
+
+                            <thead>
+
+                                <tr>
+                                    <th>Day</th>
+                                    <th>Time</th>
+                                    <th>Unit</th>
+                                    <th>Venue</th>
+                                    <th>Mode</th>
+                                    <th>Actions</th>
+                                </tr>
+
+                            </thead>
+
+                            <tbody id="timetableBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 UNITS
+            ================================================== -->
+
+            <section
+                id="units"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>My Units</h2>
+
+                        <p>
+                            Current Year 1 Computer Science units
+                        </p>
+                    </div>
+
+                </div>
+
+                <div
+                    class="unit-grid"
+                    id="unitGrid"
+                ></div>
+
+            </section>
+
+
+            <!-- =================================================
+                 NOTES
+            ================================================== -->
+
+            <section
+                id="notes"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>My Notes</h2>
+
+                        <p>
+                            Keep your personal lecture and revision notes here.
+                        </p>
+                    </div>
+
+                    <button
+                        class="btn btn-primary"
+                        id="addNoteBtn"
+                    >
+                        + Add Note
+                    </button>
+
+                </div>
+
+                <div class="card">
+
+                    <div class="data-table-wrapper">
+
+                        <table class="data-table">
+
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Unit</th>
+                                    <th>Type</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="notesBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 RESOURCES
+            ================================================== -->
+
+            <section
+                id="resources"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>Resources</h2>
+
+                        <p>
+                            Useful university and personal study resources.
+                        </p>
+                    </div>
+
+                    <button
+                        class="btn btn-primary"
+                        id="addResourceBtn"
+                    >
+                        + Add Resource
+                    </button>
+
+                </div>
+
+                <div
+                    class="resource-grid"
+                    id="resourceGrid"
+                ></div>
+
+            </section>
+
+
+            <!-- =================================================
+                 TRANSCRIPTS
+            ================================================== -->
+
+            <section
+                id="transcripts"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>Academic Transcript</h2>
+
+                        <p>
+                            Store and organise transcript records when results become available.
+                        </p>
+                    </div>
+
+                    <button
+                        class="btn btn-primary"
+                        id="addTranscriptBtn"
+                    >
+                        + Add Result
+                    </button>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="data-table-wrapper">
+
+                        <table class="data-table">
+
+                            <thead>
+                                <tr>
+                                    <th>Unit</th>
+                                    <th>Marks</th>
+                                    <th>Grade</th>
+                                    <th>Semester</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="transcriptsBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 ANNOUNCEMENTS
+            ================================================== -->
+
+            <section
+                id="announcements"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>Announcements</h2>
+
+                        <p>
+                            Personal academic notices and important updates.
+                        </p>
+                    </div>
+
+                    <button
+                        class="btn btn-primary"
+                        id="addAnnouncementBtn"
+                    >
+                        + Add Announcement
+                    </button>
+
+                </div>
+
+
+                <div
+                    class="card"
+                    id="announcementList"
+                ></div>
+
+            </section>
+
+
+            <!-- =================================================
+                 GROUPS
+            ================================================== -->
+
+            <section
+                id="groups"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>Groups</h2>
+
+                        <p>
+                            Keep track of class, assignment and project groups.
+                        </p>
+                    </div>
+
+                    <button
+                        class="btn btn-primary"
+                        id="addGroupBtn"
+                    >
+                        + Add Group
+                    </button>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="data-table-wrapper">
+
+                        <table class="data-table">
+
+                            <thead>
+                                <tr>
+                                    <th>Group</th>
+                                    <th>Purpose</th>
+                                    <th>Members</th>
+                                    <th>Contact</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="groupsBody">
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PROFILE
+            ================================================== -->
+
+            <section
+                id="profile"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>My Profile</h2>
+
+                        <p>
+                            Your student information.
+                        </p>
+                    </div>
+
+                    <button
+                        class="btn btn-primary"
+                        id="editProfileBtn"
+                    >
+                        Edit Profile
+                    </button>
+
+                </div>
+
+
+                <div class="profile-grid">
+
+                    <div class="card profile-card">
+
+                        <div
+                            class="avatar"
+                            id="profileAvatar"
+                        >
+                            AM
+                        </div>
+
+                        <h3 id="profileName">
+                            AMOS KIPRONO
+                        </h3>
+
+                        <p>
+                            BSc Computer Science
+                        </p>
+
+                        <p>
+                            Kisii University
+                        </p>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="profile-info">
+
+                            <div class="info-box">
+                                <small>Admission Number</small>
+                                <strong id="profileAdmission">
+                                    IN13/06977/26
+                                </strong>
+                            </div>
+
+                            <div class="info-box">
+                                <small>Year</small>
+                                <strong id="profileYear">
+                                    Year 1
+                                </strong>
+                            </div>
+
+                            <div class="info-box">
+                                <small>Programme</small>
+                                <strong>
+                                    BSc Computer Science
+                                </strong>
+                            </div>
+
+                            <div class="info-box">
+                                <small>Campus</small>
+                                <strong>
+                                    Main Campus
+                                </strong>
+                            </div>
+
+                            <div class="info-box">
+                                <small>Semester</small>
+                                <strong>
+                                    August–December 2026
+                                </strong>
+                            </div>
+
+                            <div class="info-box">
+                                <small>University</small>
+                                <strong>
+                                    Kisii University
+                                </strong>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 SETTINGS
+            ================================================== -->
+
+            <section
+                id="settings"
+                class="page-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>Settings</h2>
+
+                        <p>
+                            Manage your local AMOS STUDENT HUB.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="dashboard-grid">
+
+                    <div class="card">
+
+                        <div class="card-title">
+                            <h3>Backup Data</h3>
+                        </div>
+
+                        <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:15px;">
+                            Export your timetable, notes, announcements,
+                            groups, resources, transcript records and
+                            profile settings into a JSON backup file.
+                        </p>
+
+                        <button
+                            class="btn btn-primary"
+                            id="exportDataBtn"
+                        >
+                            Export Hub Data
+                        </button>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="card-title">
+                            <h3>Restore Data</h3>
+                        </div>
+
+                        <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:15px;">
+                            Restore a previously exported AMOS STUDENT HUB
+                            JSON backup.
+                        </p>
+
+                        <input
+                            type="file"
+                            id="importDataInput"
+                            accept=".json,application/json"
+                        >
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="card-title">
+                            <h3>Appearance</h3>
+                        </div>
+
+                        <button
+                            class="btn"
+                            id="settingsThemeBtn"
+                        >
+                            Toggle Dark / Light Mode
+                        </button>
+
+                    </div>
+
+
+                    <div class="card">
+
+                        <div class="card-title">
+                            <h3>Reset Local Data</h3>
+                        </div>
+
+                        <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:15px;">
+                            This permanently removes locally stored
+                            AMOS STUDENT HUB changes from this browser.
+                        </p>
+
+                        <button
+                            class="btn btn-danger"
+                            id="resetDataBtn"
+                        >
+                            Reset Data
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<!-- =========================================================
+     MODAL
+========================================================= -->
+
+<div
+    class="modal-overlay"
+    id="modalOverlay"
+>
+
+    <div class="modal">
+
+        <div class="modal-header">
+
+            <h3 id="modalTitle">
+                Edit
+            </h3>
+
+            <button
+                class="modal-close"
+                id="modalClose"
+            >
+                ×
+            </button>
+
+        </div>
+
+        <div id="modalBody"></div>
+
+        <div class="modal-footer">
+
+            <button
+                class="btn"
+                id="modalCancel"
+            >
+                Cancel
+            </button>
+
+            <button
+                class="btn btn-primary"
+                id="modalSave"
+            >
+                Save
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- TOASTS -->
+
+<div id="toastContainer"></div>
+    <script src="js/storage.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/timetable.js"></script>
+    <script src="js/notes.js"></script>
+    <script src="data/courses.js"></script>
+    <script src="data/timetable.js"></script>
+    <script src="data/announcements.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

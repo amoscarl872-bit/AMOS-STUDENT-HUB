@@ -1,0 +1,3370 @@
+"use strict";
+
+/*
+ * ============================================================
+ * AMOS STUDENT HUB
+ * Single-file local academic dashboard.
+ * ============================================================
+ */
+
+
+/* ============================================================
+   CONSTANTS
+============================================================ */
+
+
+const LOGIN_USERNAME = "IN13/06977/26";
+const LOGIN_PASSWORD = "IN13/06977/26";
+
+const ELEARNING_URL =
+    "https://elearning.kisiiuniversity.ac.ke/login/index.php";
+
+const CLASS_HUB_URL =
+    "https://cs-class-hub-tau.vercel.app";
+
+
+/* ============================================================
+   DEFAULT DATA
+============================================================ */
+
+const DEFAULT_DATA = {
+
+    profile: {
+        name: "AMOS KIPRONO",
+        admission: "IN13/06977/26",
+        email: "",
+        year: "Year 1",
+        programme: "BSc Computer Science",
+        campus: "Main Campus"
+    },
+
+    timetable: TIMETABLE_DATA,
+
+    units: COURSES_DATA,
+
+    notes: [],
+
+    announcements: ANNOUNCEMENTS_DATA,
+
+    groups: [],
+
+    resources: [
+        {
+            id: crypto.randomUUID(),
+            title: "Kisii University E-Learning",
+            description: "Access your LMS, online classes and course materials.",
+            category: "University",
+            url: ELEARNING_URL
+        },
+        {
+            id: crypto.randomUUID(),
+            title: "CS Class Hub",
+            description: "External Computer Science class updates.",
+            category: "Class",
+            url: CLASS_HUB_URL
+        },
+        {
+            id: crypto.randomUUID(),
+            title: "Kisii University Website",
+            description: "Official Kisii University website.",
+            category: "University",
+            url: "https://kisiiuniversity.ac.ke"
+        }
+    ],
+
+    transcripts: []
+};
+
+
+/* ============================================================
+   APPLICATION STATE
+============================================================ */
+
+let state = loadData();
+
+let currentModalSave = null;
+
+
+/* ============================================================
+   DOM HELPERS
+============================================================ */
+
+function $(selector) {
+    const element = document.querySelector(selector);
+
+    if (!element) {
+        throw new Error(`Required element not found: ${selector}`);
+    }
+
+    return element;
+}
+
+
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+
+/* ============================================================
+   AUTHENTICATION
+============================================================ */
+
+function isLoggedIn() {
+    return sessionStorage.getItem("amos_logged_in") === "true";
+}
+
+
+function login() {
+
+    const username = $("#loginUsername").value.trim();
+    const password = $("#loginPassword").value;
+
+    const errorBox = $("#loginError");
+
+    errorBox.classList.add("hidden");
+    errorBox.textContent = "";
+
+    if (!username || !password) {
+
+        errorBox.textContent =
+            "Please enter both your admission number/email and password.";
+
+        errorBox.classList.remove("hidden");
+
+        return;
+    }
+
+    const usernameMatches =
+        username.toLowerCase() === LOGIN_USERNAME.toLowerCase();
+
+    const passwordMatches =
+        password === LOGIN_PASSWORD;
+
+    if (!usernameMatches || !passwordMatches) {
+
+        errorBox.textContent =
+            "Incorrect admission number/email or password.";
+
+        errorBox.classList.remove("hidden");
+
+        return;
+    }
+
+    sessionStorage.setItem(
+        "amos_logged_in",
+        "true"
+    );
+
+    showApplication();
+
+}
+
+
+function logout() {
+
+    sessionStorage.removeItem("amos_logged_in");
+
+    $("#app").classList.add("hidden");
+    $("#loginScreen").classList.remove("hidden");
+
+    $("#loginPassword").value = "";
+
+    showToast(
+        "You have been logged out.",
+        "success"
+    );
+}
+
+
+function showApplication() {
+
+    $("#loginScreen").classList.add("hidden");
+    $("#app").classList.remove("hidden");
+
+    renderAll();
+
+}
+
+
+/* ============================================================
+   DATE / TIME
+============================================================ */
+
+function updateClock() {
+
+    const now = new Date();
+
+    $("#currentDate").textContent =
+        now.toLocaleDateString(
+            "en-KE",
+            {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric"
+            }
+        );
+
+    $("#todayName").textContent =
+        now.toLocaleDateString(
+            "en-KE",
+            {
+                weekday: "long"
+            }
+        );
+
+}
+
+
+function getCurrentDay() {
+
+    return new Date().toLocaleDateString(
+        "en-KE",
+        {
+            weekday: "long"
+        }
+    );
+}
+
+
+function timeToMinutes(time) {
+
+    const [hours, minutes] =
+        time.split(":").map(Number);
+
+    return hours * 60 + minutes;
+}
+
+
+function getTodayClasses() {
+
+    const today = getCurrentDay();
+
+    return state.timetable
+        .filter(item => item.day === today)
+        .sort(
+            (a, b) =>
+                timeToMinutes(a.start) -
+                timeToMinutes(b.start)
+        );
+}
+
+
+/* ============================================================
+   DASHBOARD
+============================================================ */
+
+function renderDashboard() {
+
+    const profileName =
+        state.profile.name || "AMOS";
+
+    $("#welcomeText").textContent =
+        `Welcome, ${profileName.split(" ")[0]}`;
+
+    $("#statClasses").textContent =
+        state.timetable.length;
+
+    $("#statUnits").textContent =
+        state.units.length;
+
+    $("#statNotes").textContent =
+        state.notes.length;
+
+    $("#statAnnouncements").textContent =
+        state.announcements.length;
+
+
+    const todayClasses =
+        getTodayClasses();
+
+    const todayContainer =
+        $("#todayClasses");
+
+    if (!todayClasses.length) {
+
+        todayContainer.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">✓</div>
+                <p>No classes scheduled for today.</p>
+            </div>
+        `;
+
+    } else {
+
+        todayContainer.innerHTML =
+            todayClasses.map(item => `
+                <div class="class-item">
+
+                    <div class="class-time">
+                        ${escapeHTML(item.time)}
+                    </div>
+
+                    <div class="class-info">
+
+                        <strong>
+                            ${escapeHTML(item.unit)}
+                        </strong>
+
+                        <small>
+                            ${escapeHTML(item.venue)}
+                        </small>
+
+                        <span class="badge ${
+                            item.mode.toLowerCase().includes("online")
+                                ? "badge-online"
+                                : "badge-person"
+                        }">
+                            ${escapeHTML(item.mode)}
+                        </span>
+
+                    </div>
+
+                </div>
+            `).join("");
+
+    }
+
+
+    const announcements =
+        [...state.announcements]
+            .sort(
+                (a, b) =>
+                    new Date(b.date) -
+                    new Date(a.date)
+            )
+            .slice(0, 3);
+
+    const announcementContainer =
+        $("#dashboardAnnouncements");
+
+    if (!announcements.length) {
+
+        announcementContainer.innerHTML = `
+            <div class="empty-state">
+                <p>No announcements yet.</p>
+            </div>
+        `;
+
+    } else {
+
+        announcementContainer.innerHTML =
+            announcements.map(item => `
+                <div class="announcement-item">
+
+                    <h4>
+                        ${escapeHTML(item.title)}
+                    </h4>
+
+                    <p>
+                        ${escapeHTML(item.message)}
+                    </p>
+
+                    <time>
+                        ${escapeHTML(formatDate(item.date))}
+                    </time>
+
+                </div>
+            `).join("");
+    }
+
+
+    renderNextClass();
+}
+
+
+function renderNextClass() {
+
+    const now = new Date();
+
+    const dayIndex = now.getDay();
+
+    const days = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday"
+    ];
+
+    let next = null;
+    let smallestDifference = Infinity;
+
+    state.timetable.forEach(item => {
+
+        const targetDay =
+            days.indexOf(item.day);
+
+        if (targetDay === -1) {
+            return;
+        }
+
+        let dayDifference =
+            targetDay - dayIndex;
+
+        if (dayDifference < 0) {
+            dayDifference += 7;
+        }
+
+        const [hours, minutes] =
+            item.start.split(":").map(Number);
+
+        const target = new Date(now);
+
+        target.setHours(
+            hours,
+            minutes,
+            0,
+            0
+        );
+
+        if (dayDifference > 0) {
+            target.setDate(
+                target.getDate() + dayDifference
+            );
+        }
+
+        if (
+            dayDifference === 0 &&
+            target <= now
+        ) {
+            target.setDate(
+                target.getDate() + 7
+            );
+        }
+
+        const difference =
+            target.getTime() - now.getTime();
+
+        if (difference < smallestDifference) {
+            smallestDifference = difference;
+            next = {
+                ...item,
+                target
+            };
+        }
+
+    });
+
+
+    const container =
+        $("#nextClass");
+
+    if (!next) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <p>No upcoming classes.</p>
+            </div>
+        `;
+
+        return;
+    }
+
+
+    const hoursRemaining =
+        Math.floor(
+            smallestDifference /
+            (1000 * 60 * 60)
+        );
+
+    const minutesRemaining =
+        Math.floor(
+            (smallestDifference %
+                (1000 * 60 * 60)) /
+            (1000 * 60)
+        );
+
+    container.innerHTML = `
+
+        <div style="
+            padding:18px;
+            background:var(--surface-2);
+            border-radius:13px;
+        ">
+
+            <div style="
+                color:var(--primary);
+                font-weight:900;
+                font-size:13px;
+            ">
+                ${escapeHTML(next.day)}
+            </div>
+
+            <div style="
+                font-size:22px;
+                font-weight:900;
+                margin-top:5px;
+            ">
+                ${escapeHTML(next.unit)}
+            </div>
+
+            <div style="
+                color:var(--muted);
+                font-size:13px;
+                margin-top:5px;
+            ">
+                ${escapeHTML(next.time)}
+            </div>
+
+            <div style="
+                color:var(--muted);
+                font-size:13px;
+                margin-top:3px;
+            ">
+                ${escapeHTML(next.venue)}
+            </div>
+
+            <div style="
+                margin-top:14px;
+                color:var(--primary);
+                font-size:12px;
+                font-weight:800;
+            ">
+                ${hoursRemaining}h ${minutesRemaining}m until class
+            </div>
+
+        </div>
+    `;
+}
+
+
+/* ============================================================
+   TIMETABLE
+============================================================ */
+
+function renderTimetable() {
+
+    const order = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+    ];
+
+    const classes =
+        [...state.timetable].sort((a, b) => {
+
+            const dayDifference =
+                order.indexOf(a.day) -
+                order.indexOf(b.day);
+
+            if (dayDifference !== 0) {
+                return dayDifference;
+            }
+
+            return timeToMinutes(a.start) -
+                timeToMinutes(b.start);
+        });
+
+
+    const body =
+        $("#timetableBody");
+
+    if (!classes.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="6">
+                    <div class="empty-state">
+                        No classes have been added.
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    body.innerHTML =
+        classes.map(item => `
+
+            <tr>
+
+                <td class="day-label">
+                    ${escapeHTML(item.day)}
+                </td>
+
+                <td>
+                    ${escapeHTML(item.time)}
+                </td>
+
+                <td>
+                    <div class="unit-name">
+                        ${escapeHTML(item.unit)}
+                    </div>
+                </td>
+
+                <td>
+                    <div class="venue">
+                        ${escapeHTML(item.venue)}
+                    </div>
+                </td>
+
+                <td>
+
+                    <span class="mode-pill ${
+                        item.mode.toLowerCase().includes("online")
+                            ? "online"
+                            : "inperson"
+                    }">
+                        ${escapeHTML(item.mode)}
+                    </span>
+
+                </td>
+
+                <td>
+
+                    <button
+                        class="btn"
+                        onclick="editClass('${item.id}')"
+                    >
+                        Edit
+                    </button>
+
+                    <button
+                        class="btn btn-danger"
+                        onclick="deleteClass('${item.id}')"
+                    >
+                        Delete
+                    </button>
+
+                </td>
+
+            </tr>
+
+        `).join("");
+}
+
+
+/* ============================================================
+   UNITS
+============================================================ */
+
+function renderUnits() {
+
+    const container =
+        $("#unitGrid");
+
+    container.innerHTML =
+        state.units.map(unit => `
+
+            <div class="unit-card">
+
+                <div class="unit-code">
+                    ${escapeHTML(unit.code)}
+                </div>
+
+                <h3>
+                    ${escapeHTML(unit.title)}
+                </h3>
+
+                <p>
+                    ${escapeHTML(unit.description)}
+                </p>
+
+            </div>
+
+        `).join("");
+}
+
+
+/* ============================================================
+   NOTES
+============================================================ */
+
+function renderNotes() {
+
+    const body =
+        $("#notesBody");
+
+    if (!state.notes.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="5">
+                    <div class="empty-state">
+                        <div class="empty-icon">✎</div>
+                        <p>No notes saved yet.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    body.innerHTML =
+        state.notes.map(note => `
+
+            <tr>
+
+                <td>
+                    <strong>
+                        ${escapeHTML(note.title)}
+                    </strong>
+                </td>
+
+                <td>
+                    ${escapeHTML(note.unit)}
+                </td>
+
+                <td>
+                    ${escapeHTML(note.type)}
+                </td>
+
+                <td>
+                    ${escapeHTML(formatDate(note.date))}
+                </td>
+
+                <td>
+
+                    <button
+                        class="btn"
+                        onclick="viewNote('${note.id}')"
+                    >
+                        View
+                    </button>
+
+                    <button
+                        class="btn"
+                        onclick="editNote('${note.id}')"
+                    >
+                        Edit
+                    </button>
+
+                    <button
+                        class="btn btn-danger"
+                        onclick="deleteNote('${note.id}')"
+                    >
+                        Delete
+                    </button>
+
+                </td>
+
+            </tr>
+
+        `).join("");
+}
+
+
+/* ============================================================
+   RESOURCES
+============================================================ */
+
+function renderResources() {
+
+    const container =
+        $("#resourceGrid");
+
+    if (!state.resources.length) {
+
+        container.innerHTML = `
+            <div class="card">
+                <div class="empty-state">
+                    <div class="empty-icon">📚</div>
+                    <p>No resources added.</p>
+                </div>
+            </div>
+        `;
+
+        return;
+    }
+
+
+    container.innerHTML =
+        state.resources.map(resource => `
+
+            <div class="resource-card">
+
+                <div class="resource-icon">
+                    ${
+                        resource.category === "University"
+                            ? "🎓"
+                            : resource.category === "Class"
+                                ? "💻"
+                                : "📚"
+                    }
+                </div>
+
+                <h3>
+                    ${escapeHTML(resource.title)}
+                </h3>
+
+                <p>
+                    ${escapeHTML(resource.description)}
+                </p>
+
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+
+                    <a
+                        class="btn btn-primary"
+                        href="${escapeHTML(resource.url)}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Open
+                    </a>
+
+                    <button
+                        class="btn"
+                        onclick="editResource('${resource.id}')"
+                    >
+                        Edit
+                    </button>
+
+                    <button
+                        class="btn btn-danger"
+                        onclick="deleteResource('${resource.id}')"
+                    >
+                        Delete
+                    </button>
+
+                </div>
+
+            </div>
+
+        `).join("");
+}
+
+
+/* ============================================================
+   TRANSCRIPTS
+============================================================ */
+
+function renderTranscripts() {
+
+    const body =
+        $("#transcriptsBody");
+
+    if (!state.transcripts.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="5">
+                    <div class="empty-state">
+                        <div class="empty-icon">▥</div>
+                        <p>
+                            No transcript results have been added yet.
+                        </p>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    body.innerHTML =
+        state.transcripts.map(result => `
+
+            <tr>
+
+                <td>
+                    <strong>
+                        ${escapeHTML(result.unit)}
+                    </strong>
+                </td>
+
+                <td>
+                    ${escapeHTML(result.marks)}
+                </td>
+
+                <td>
+                    <span class="badge badge-online">
+                        ${escapeHTML(result.grade)}
+                    </span>
+                </td>
+
+                <td>
+                    ${escapeHTML(result.semester)}
+                </td>
+
+                <td>
+
+                    <button
+                        class="btn"
+                        onclick="editTranscript('${result.id}')"
+                    >
+                        Edit
+                    </button>
+
+                    <button
+                        class="btn btn-danger"
+                        onclick="deleteTranscript('${result.id}')"
+                    >
+                        Delete
+                    </button>
+
+                </td>
+
+            </tr>
+
+        `).join("");
+}
+
+
+/* ============================================================
+   ANNOUNCEMENTS
+============================================================ */
+
+function renderAnnouncements() {
+
+    const container =
+        $("#announcementList");
+
+    if (!state.announcements.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">!</div>
+                <p>No announcements yet.</p>
+            </div>
+        `;
+
+        return;
+    }
+
+
+    const sorted =
+        [...state.announcements]
+            .sort(
+                (a, b) =>
+                    new Date(b.date) -
+                    new Date(a.date)
+            );
+
+
+    container.innerHTML =
+        sorted.map(item => `
+
+            <div class="announcement-item">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    gap:10px;
+                    align-items:flex-start;
+                ">
+
+                    <div>
+
+                        <h4>
+                            ${escapeHTML(item.title)}
+                        </h4>
+
+                        <p>
+                            ${escapeHTML(item.message)}
+                        </p>
+
+                        <time>
+                            ${escapeHTML(formatDate(item.date))}
+                        </time>
+
+                    </div>
+
+                    <div style="display:flex;gap:5px;">
+
+                        <button
+                            class="btn"
+                            onclick="editAnnouncement('${item.id}')"
+                        >
+                            Edit
+                        </button>
+
+                        <button
+                            class="btn btn-danger"
+                            onclick="deleteAnnouncement('${item.id}')"
+                        >
+                            Delete
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `).join("");
+}
+
+
+/* ============================================================
+   GROUPS
+============================================================ */
+
+function renderGroups() {
+
+    const body =
+        $("#groupsBody");
+
+    if (!state.groups.length) {
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="5">
+                    <div class="empty-state">
+                        <div class="empty-icon">♟</div>
+                        <p>No groups added yet.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+
+    body.innerHTML =
+        state.groups.map(group => `
+
+            <tr>
+
+                <td>
+                    <strong>
+                        ${escapeHTML(group.name)}
+                    </strong>
+                </td>
+
+                <td>
+                    ${escapeHTML(group.purpose)}
+                </td>
+
+                <td>
+                    ${escapeHTML(group.members)}
+                </td>
+
+                <td>
+                    ${escapeHTML(group.contact)}
+                </td>
+
+                <td>
+
+                    <button
+                        class="btn"
+                        onclick="editGroup('${group.id}')"
+                    >
+                        Edit
+                    </button>
+
+                    <button
+                        class="btn btn-danger"
+                        onclick="deleteGroup('${group.id}')"
+                    >
+                        Delete
+                    </button>
+
+                </td>
+
+            </tr>
+
+        `).join("");
+}
+
+
+/* ============================================================
+   PROFILE
+============================================================ */
+
+function renderProfile() {
+
+    const name =
+        state.profile.name || "AMOS";
+
+    const initials =
+        name
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(word => word[0])
+            .join("")
+            .toUpperCase();
+
+    $("#profileAvatar").textContent =
+        initials || "AM";
+
+    $("#profileName").textContent =
+        name;
+
+    $("#profileAdmission").textContent =
+        state.profile.admission;
+
+    $("#profileYear").textContent =
+        state.profile.year;
+
+}
+
+
+/* ============================================================
+   MODAL SYSTEM
+============================================================ */
+
+function openModal(title, html, saveCallback) {
+
+    $("#modalTitle").textContent =
+        title;
+
+    $("#modalBody").innerHTML =
+        html;
+
+    currentModalSave =
+        saveCallback;
+
+    $("#modalOverlay").classList.add("show");
+}
+
+
+function closeModal() {
+
+    $("#modalOverlay").classList.remove("show");
+
+    $("#modalBody").innerHTML = "";
+
+    currentModalSave = null;
+}
+
+
+function saveModal() {
+
+    if (typeof currentModalSave !== "function") {
+        closeModal();
+        return;
+    }
+
+    try {
+
+        const result =
+            currentModalSave();
+
+        if (result !== false) {
+            closeModal();
+        }
+
+    } catch (error) {
+
+        console.error("Modal save error:", error);
+
+        showToast(
+            "Something went wrong while saving.",
+            "error"
+        );
+    }
+}
+
+
+/* ============================================================
+   TIMETABLE CRUD
+============================================================ */
+
+function addClass() {
+
+    openModal(
+        "Add Class",
+        `
+
+        <div class="field">
+            <label>Day</label>
+
+            <select id="modalClassDay">
+                <option>Monday</option>
+                <option>Tuesday</option>
+                <option>Wednesday</option>
+                <option>Thursday</option>
+                <option>Friday</option>
+                <option>Saturday</option>
+                <option>Sunday</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Start Time</label>
+
+            <input
+                id="modalClassStart"
+                type="time"
+                value="09:00"
+            >
+        </div>
+
+        <div class="field">
+            <label>End Time</label>
+
+            <input
+                id="modalClassEnd"
+                type="time"
+                value="11:00"
+            >
+        </div>
+
+        <div class="field">
+            <label>Unit</label>
+
+            <input
+                id="modalClassUnit"
+                placeholder="e.g. COMP 107"
+            >
+        </div>
+
+        <div class="field">
+            <label>Venue</label>
+
+            <input
+                id="modalClassVenue"
+                placeholder="e.g. KSU T V3"
+            >
+        </div>
+
+        <div class="field">
+            <label>Mode</label>
+
+            <select id="modalClassMode">
+                <option>In-person</option>
+                <option>Online / LMS</option>
+            </select>
+        </div>
+
+        `,
+        () => {
+
+            const day =
+                $("#modalClassDay").value;
+
+            const start =
+                $("#modalClassStart").value;
+
+            const end =
+                $("#modalClassEnd").value;
+
+            const unit =
+                $("#modalClassUnit").value.trim();
+
+            const venue =
+                $("#modalClassVenue").value.trim();
+
+            const mode =
+                $("#modalClassMode").value;
+
+            if (!unit || !venue) {
+
+                showToast(
+                    "Unit and venue are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            if (
+                !start ||
+                !end ||
+                timeToMinutes(end) <= timeToMinutes(start)
+            ) {
+
+                showToast(
+                    "End time must be later than start time.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            state.timetable.push({
+
+                id: crypto.randomUUID(),
+                day,
+                start,
+                end,
+                time: formatTimeRange(start, end),
+                unit,
+                venue,
+                mode
+
+            });
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Class added successfully.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function editClass(id) {
+
+    const item =
+        state.timetable.find(
+            classItem => classItem.id === id
+        );
+
+    if (!item) {
+        showToast("Class not found.", "error");
+        return;
+    }
+
+
+    openModal(
+        "Edit Class",
+        `
+
+        <div class="field">
+            <label>Day</label>
+
+            <select id="modalClassDay">
+                ${[
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday"
+                ].map(day => `
+                    <option
+                        ${day === item.day ? "selected" : ""}
+                    >
+                        ${day}
+                    </option>
+                `).join("")}
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Start Time</label>
+
+            <input
+                id="modalClassStart"
+                type="time"
+                value="${escapeHTML(item.start)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>End Time</label>
+
+            <input
+                id="modalClassEnd"
+                type="time"
+                value="${escapeHTML(item.end)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Unit</label>
+
+            <input
+                id="modalClassUnit"
+                value="${escapeHTML(item.unit)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Venue</label>
+
+            <input
+                id="modalClassVenue"
+                value="${escapeHTML(item.venue)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Mode</label>
+
+            <select id="modalClassMode">
+                <option
+                    ${item.mode === "In-person" ? "selected" : ""}
+                >
+                    In-person
+                </option>
+
+                <option
+                    ${item.mode === "Online / LMS" ? "selected" : ""}
+                >
+                    Online / LMS
+                </option>
+            </select>
+        </div>
+
+        `,
+        () => {
+
+            const start =
+                $("#modalClassStart").value;
+
+            const end =
+                $("#modalClassEnd").value;
+
+            if (
+                !start ||
+                !end ||
+                timeToMinutes(end) <= timeToMinutes(start)
+            ) {
+
+                showToast(
+                    "End time must be later than start time.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            item.day =
+                $("#modalClassDay").value;
+
+            item.start =
+                start;
+
+            item.end =
+                end;
+
+            item.time =
+                formatTimeRange(start, end);
+
+            item.unit =
+                $("#modalClassUnit").value.trim();
+
+            item.venue =
+                $("#modalClassVenue").value.trim();
+
+            item.mode =
+                $("#modalClassMode").value;
+
+            if (!item.unit || !item.venue) {
+
+                showToast(
+                    "Unit and venue are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Class updated.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function deleteClass(id) {
+
+    const item =
+        state.timetable.find(
+            classItem => classItem.id === id
+        );
+
+    if (!item) {
+        return;
+    }
+
+    if (
+        !confirm(
+            `Delete ${item.unit} from your timetable?`
+        )
+    ) {
+        return;
+    }
+
+    state.timetable =
+        state.timetable.filter(
+            classItem => classItem.id !== id
+        );
+
+    saveData();
+
+    renderAll();
+
+    showToast(
+        "Class deleted.",
+        "success"
+    );
+}
+
+
+/* ============================================================
+   NOTES CRUD
+============================================================ */
+
+function addNote() {
+
+    openModal(
+        "Add Note",
+        `
+
+        <div class="field">
+            <label>Title</label>
+
+            <input
+                id="modalNoteTitle"
+                placeholder="e.g. Real Numbers Summary"
+            >
+        </div>
+
+        <div class="field">
+            <label>Unit</label>
+
+            <select id="modalNoteUnit">
+                ${state.units.map(unit => `
+                    <option>
+                        ${escapeHTML(unit.code)}
+                    </option>
+                `).join("")}
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Type</label>
+
+            <select id="modalNoteType">
+                <option>Lecture Note</option>
+                <option>Revision</option>
+                <option>Assignment</option>
+                <option>Exam Preparation</option>
+                <option>Personal</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Content</label>
+
+            <textarea
+                id="modalNoteContent"
+                placeholder="Write your note here..."
+            ></textarea>
+        </div>
+
+        `,
+        () => {
+
+            const title =
+                $("#modalNoteTitle").value.trim();
+
+            const unit =
+                $("#modalNoteUnit").value;
+
+            const type =
+                $("#modalNoteType").value;
+
+            const content =
+                $("#modalNoteContent").value.trim();
+
+            if (!title || !content) {
+
+                showToast(
+                    "Note title and content are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            state.notes.push({
+
+                id: crypto.randomUUID(),
+                title,
+                unit,
+                type,
+                content,
+                date: new Date().toISOString().split("T")[0]
+
+            });
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Note saved.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function viewNote(id) {
+
+    const note =
+        state.notes.find(
+            item => item.id === id
+        );
+
+    if (!note) {
+        return;
+    }
+
+    openModal(
+        note.title,
+        `
+
+        <div style="
+            color:var(--muted);
+            font-size:12px;
+            margin-bottom:15px;
+        ">
+            ${escapeHTML(note.unit)}
+            •
+            ${escapeHTML(note.type)}
+            •
+            ${escapeHTML(formatDate(note.date))}
+        </div>
+
+        <div style="
+            white-space:pre-wrap;
+            line-height:1.7;
+            font-size:14px;
+        ">
+            ${escapeHTML(note.content)}
+        </div>
+
+        `,
+        () => true
+    );
+}
+
+
+function editNote(id) {
+
+    const note =
+        state.notes.find(
+            item => item.id === id
+        );
+
+    if (!note) {
+        return;
+    }
+
+
+    openModal(
+        "Edit Note",
+        `
+
+        <div class="field">
+            <label>Title</label>
+
+            <input
+                id="modalNoteTitle"
+                value="${escapeHTML(note.title)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Unit</label>
+
+            <select id="modalNoteUnit">
+                ${state.units.map(unit => `
+                    <option
+                        ${unit.code === note.unit ? "selected" : ""}
+                    >
+                        ${escapeHTML(unit.code)}
+                    </option>
+                `).join("")}
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Type</label>
+
+            <select id="modalNoteType">
+
+                ${[
+                    "Lecture Note",
+                    "Revision",
+                    "Assignment",
+                    "Exam Preparation",
+                    "Personal"
+                ].map(type => `
+                    <option
+                        ${type === note.type ? "selected" : ""}
+                    >
+                        ${type}
+                    </option>
+                `).join("")}
+
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Content</label>
+
+            <textarea id="modalNoteContent">${escapeHTML(note.content)}</textarea>
+        </div>
+
+        `,
+        () => {
+
+            note.title =
+                $("#modalNoteTitle").value.trim();
+
+            note.unit =
+                $("#modalNoteUnit").value;
+
+            note.type =
+                $("#modalNoteType").value;
+
+            note.content =
+                $("#modalNoteContent").value.trim();
+
+            if (!note.title || !note.content) {
+
+                showToast(
+                    "Title and content are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Note updated.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function deleteNote(id) {
+
+    if (!confirm("Delete this note?")) {
+        return;
+    }
+
+    state.notes =
+        state.notes.filter(
+            note => note.id !== id
+        );
+
+    saveData();
+
+    renderAll();
+
+    showToast(
+        "Note deleted.",
+        "success"
+    );
+}
+
+
+/* ============================================================
+   RESOURCE CRUD
+============================================================ */
+
+function addResource() {
+
+    openModal(
+        "Add Resource",
+        `
+
+        <div class="field">
+            <label>Title</label>
+
+            <input
+                id="modalResourceTitle"
+                placeholder="Resource name"
+            >
+        </div>
+
+        <div class="field">
+            <label>Description</label>
+
+            <input
+                id="modalResourceDescription"
+                placeholder="What is this resource?"
+            >
+        </div>
+
+        <div class="field">
+            <label>Category</label>
+
+            <select id="modalResourceCategory">
+                <option>University</option>
+                <option>Class</option>
+                <option>Study</option>
+                <option>Other</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label>URL</label>
+
+            <input
+                id="modalResourceUrl"
+                type="url"
+                placeholder="https://example.com"
+            >
+        </div>
+
+        `,
+        () => {
+
+            const title =
+                $("#modalResourceTitle").value.trim();
+
+            const description =
+                $("#modalResourceDescription").value.trim();
+
+            const category =
+                $("#modalResourceCategory").value;
+
+            const url =
+                $("#modalResourceUrl").value.trim();
+
+            if (!title || !description || !url) {
+
+                showToast(
+                    "Title, description and URL are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            try {
+
+                new URL(url);
+
+            } catch {
+
+                showToast(
+                    "Please enter a valid URL.",
+                    "error"
+                );
+
+                return false;
+            }
+
+
+            state.resources.push({
+
+                id: crypto.randomUUID(),
+                title,
+                description,
+                category,
+                url
+
+            });
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Resource added.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function editResource(id) {
+
+    const resource =
+        state.resources.find(
+            item => item.id === id
+        );
+
+    if (!resource) {
+        return;
+    }
+
+
+    openModal(
+        "Edit Resource",
+        `
+
+        <div class="field">
+            <label>Title</label>
+
+            <input
+                id="modalResourceTitle"
+                value="${escapeHTML(resource.title)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Description</label>
+
+            <input
+                id="modalResourceDescription"
+                value="${escapeHTML(resource.description)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Category</label>
+
+            <select id="modalResourceCategory">
+
+                ${[
+                    "University",
+                    "Class",
+                    "Study",
+                    "Other"
+                ].map(category => `
+                    <option
+                        ${category === resource.category ? "selected" : ""}
+                    >
+                        ${category}
+                    </option>
+                `).join("")}
+
+            </select>
+        </div>
+
+        <div class="field">
+            <label>URL</label>
+
+            <input
+                id="modalResourceUrl"
+                type="url"
+                value="${escapeHTML(resource.url)}"
+            >
+        </div>
+
+        `,
+        () => {
+
+            const url =
+                $("#modalResourceUrl").value.trim();
+
+            try {
+
+                new URL(url);
+
+            } catch {
+
+                showToast(
+                    "Please enter a valid URL.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            resource.title =
+                $("#modalResourceTitle").value.trim();
+
+            resource.description =
+                $("#modalResourceDescription").value.trim();
+
+            resource.category =
+                $("#modalResourceCategory").value;
+
+            resource.url =
+                url;
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Resource updated.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function deleteResource(id) {
+
+    if (!confirm("Delete this resource?")) {
+        return;
+    }
+
+    state.resources =
+        state.resources.filter(
+            resource => resource.id !== id
+        );
+
+    saveData();
+
+    renderAll();
+
+    showToast(
+        "Resource deleted.",
+        "success"
+    );
+}
+
+
+/* ============================================================
+   ANNOUNCEMENT CRUD
+============================================================ */
+
+function addAnnouncement() {
+
+    openModal(
+        "Add Announcement",
+        `
+
+        <div class="field">
+            <label>Title</label>
+
+            <input
+                id="modalAnnouncementTitle"
+                placeholder="Announcement title"
+            >
+        </div>
+
+        <div class="field">
+            <label>Message</label>
+
+            <textarea
+                id="modalAnnouncementMessage"
+                placeholder="Announcement details..."
+            ></textarea>
+        </div>
+
+        <div class="field">
+            <label>Date</label>
+
+            <input
+                id="modalAnnouncementDate"
+                type="date"
+                value="${new Date().toISOString().split("T")[0]}"
+            >
+        </div>
+
+        `,
+        () => {
+
+            const title =
+                $("#modalAnnouncementTitle").value.trim();
+
+            const message =
+                $("#modalAnnouncementMessage").value.trim();
+
+            const date =
+                $("#modalAnnouncementDate").value;
+
+            if (!title || !message || !date) {
+
+                showToast(
+                    "Title, message and date are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            state.announcements.push({
+
+                id: crypto.randomUUID(),
+                title,
+                message,
+                date
+
+            });
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Announcement added.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function editAnnouncement(id) {
+
+    const item =
+        state.announcements.find(
+            announcement => announcement.id === id
+        );
+
+    if (!item) {
+        return;
+    }
+
+
+    openModal(
+        "Edit Announcement",
+        `
+
+        <div class="field">
+            <label>Title</label>
+
+            <input
+                id="modalAnnouncementTitle"
+                value="${escapeHTML(item.title)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Message</label>
+
+            <textarea id="modalAnnouncementMessage">${escapeHTML(item.message)}</textarea>
+        </div>
+
+        <div class="field">
+            <label>Date</label>
+
+            <input
+                id="modalAnnouncementDate"
+                type="date"
+                value="${escapeHTML(item.date)}"
+            >
+        </div>
+
+        `,
+        () => {
+
+            item.title =
+                $("#modalAnnouncementTitle").value.trim();
+
+            item.message =
+                $("#modalAnnouncementMessage").value.trim();
+
+            item.date =
+                $("#modalAnnouncementDate").value;
+
+            if (!item.title || !item.message || !item.date) {
+
+                showToast(
+                    "All fields are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Announcement updated.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function deleteAnnouncement(id) {
+
+    if (!confirm("Delete this announcement?")) {
+        return;
+    }
+
+    state.announcements =
+        state.announcements.filter(
+            item => item.id !== id
+        );
+
+    saveData();
+
+    renderAll();
+
+    showToast(
+        "Announcement deleted.",
+        "success"
+    );
+}
+
+
+/* ============================================================
+   GROUP CRUD
+============================================================ */
+
+function addGroup() {
+
+    openModal(
+        "Add Group",
+        `
+
+        <div class="field">
+            <label>Group Name</label>
+
+            <input
+                id="modalGroupName"
+                placeholder="e.g. COMP 103 Assignment Group"
+            >
+        </div>
+
+        <div class="field">
+            <label>Purpose</label>
+
+            <input
+                id="modalGroupPurpose"
+                placeholder="e.g. Assignment / Revision"
+            >
+        </div>
+
+        <div class="field">
+            <label>Members</label>
+
+            <textarea
+                id="modalGroupMembers"
+                placeholder="List group members..."
+            ></textarea>
+        </div>
+
+        <div class="field">
+            <label>Contact</label>
+
+            <input
+                id="modalGroupContact"
+                placeholder="WhatsApp link, phone or email"
+            >
+        </div>
+
+        `,
+        () => {
+
+            const name =
+                $("#modalGroupName").value.trim();
+
+            const purpose =
+                $("#modalGroupPurpose").value.trim();
+
+            const members =
+                $("#modalGroupMembers").value.trim();
+
+            const contact =
+                $("#modalGroupContact").value.trim();
+
+            if (!name || !purpose) {
+
+                showToast(
+                    "Group name and purpose are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            state.groups.push({
+
+                id: crypto.randomUUID(),
+                name,
+                purpose,
+                members,
+                contact
+
+            });
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Group added.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function editGroup(id) {
+
+    const group =
+        state.groups.find(
+            item => item.id === id
+        );
+
+    if (!group) {
+        return;
+    }
+
+
+    openModal(
+        "Edit Group",
+        `
+
+        <div class="field">
+            <label>Group Name</label>
+
+            <input
+                id="modalGroupName"
+                value="${escapeHTML(group.name)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Purpose</label>
+
+            <input
+                id="modalGroupPurpose"
+                value="${escapeHTML(group.purpose)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Members</label>
+
+            <textarea id="modalGroupMembers">${escapeHTML(group.members)}</textarea>
+        </div>
+
+        <div class="field">
+            <label>Contact</label>
+
+            <input
+                id="modalGroupContact"
+                value="${escapeHTML(group.contact)}"
+            >
+        </div>
+
+        `,
+        () => {
+
+            group.name =
+                $("#modalGroupName").value.trim();
+
+            group.purpose =
+                $("#modalGroupPurpose").value.trim();
+
+            group.members =
+                $("#modalGroupMembers").value.trim();
+
+            group.contact =
+                $("#modalGroupContact").value.trim();
+
+            if (!group.name || !group.purpose) {
+
+                showToast(
+                    "Group name and purpose are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Group updated.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function deleteGroup(id) {
+
+    if (!confirm("Delete this group?")) {
+        return;
+    }
+
+    state.groups =
+        state.groups.filter(
+            group => group.id !== id
+        );
+
+    saveData();
+
+    renderAll();
+
+    showToast(
+        "Group deleted.",
+        "success"
+    );
+}
+
+
+/* ============================================================
+   TRANSCRIPT CRUD
+============================================================ */
+
+function addTranscript() {
+
+    openModal(
+        "Add Transcript Result",
+        `
+
+        <div class="field">
+            <label>Unit</label>
+
+            <input
+                id="modalTranscriptUnit"
+                placeholder="e.g. COMP 103"
+            >
+        </div>
+
+        <div class="field">
+            <label>Marks</label>
+
+            <input
+                id="modalTranscriptMarks"
+                placeholder="e.g. 72"
+            >
+        </div>
+
+        <div class="field">
+            <label>Grade</label>
+
+            <select id="modalTranscriptGrade">
+                <option>A</option>
+                <option>A-</option>
+                <option>B+</option>
+                <option>B</option>
+                <option>B-</option>
+                <option>C+</option>
+                <option>C</option>
+                <option>C-</option>
+                <option>D+</option>
+                <option>D</option>
+                <option>E</option>
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Semester</label>
+
+            <input
+                id="modalTranscriptSemester"
+                placeholder="e.g. Year 1 Semester 1"
+            >
+        </div>
+
+        `,
+        () => {
+
+            const unit =
+                $("#modalTranscriptUnit").value.trim();
+
+            const marks =
+                $("#modalTranscriptMarks").value.trim();
+
+            const grade =
+                $("#modalTranscriptGrade").value;
+
+            const semester =
+                $("#modalTranscriptSemester").value.trim();
+
+            if (!unit || !marks || !semester) {
+
+                showToast(
+                    "Unit, marks and semester are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            state.transcripts.push({
+
+                id: crypto.randomUUID(),
+                unit,
+                marks,
+                grade,
+                semester
+
+            });
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Transcript result added.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function editTranscript(id) {
+
+    const result =
+        state.transcripts.find(
+            item => item.id === id
+        );
+
+    if (!result) {
+        return;
+    }
+
+
+    openModal(
+        "Edit Transcript Result",
+        `
+
+        <div class="field">
+            <label>Unit</label>
+
+            <input
+                id="modalTranscriptUnit"
+                value="${escapeHTML(result.unit)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Marks</label>
+
+            <input
+                id="modalTranscriptMarks"
+                value="${escapeHTML(result.marks)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Grade</label>
+
+            <select id="modalTranscriptGrade">
+
+                ${[
+                    "A",
+                    "A-",
+                    "B+",
+                    "B",
+                    "B-",
+                    "C+",
+                    "C",
+                    "C-",
+                    "D+",
+                    "D",
+                    "E"
+                ].map(grade => `
+                    <option
+                        ${grade === result.grade ? "selected" : ""}
+                    >
+                        ${grade}
+                    </option>
+                `).join("")}
+
+            </select>
+        </div>
+
+        <div class="field">
+            <label>Semester</label>
+
+            <input
+                id="modalTranscriptSemester"
+                value="${escapeHTML(result.semester)}"
+            >
+        </div>
+
+        `,
+        () => {
+
+            result.unit =
+                $("#modalTranscriptUnit").value.trim();
+
+            result.marks =
+                $("#modalTranscriptMarks").value.trim();
+
+            result.grade =
+                $("#modalTranscriptGrade").value;
+
+            result.semester =
+                $("#modalTranscriptSemester").value.trim();
+
+            if (
+                !result.unit ||
+                !result.marks ||
+                !result.semester
+            ) {
+
+                showToast(
+                    "All fields are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Transcript updated.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+}
+
+
+function deleteTranscript(id) {
+
+    if (!confirm("Delete this transcript result?")) {
+        return;
+    }
+
+    state.transcripts =
+        state.transcripts.filter(
+            result => result.id !== id
+        );
+
+    saveData();
+
+    renderAll();
+
+    showToast(
+        "Transcript result deleted.",
+        "success"
+    );
+}
+
+
+/* ============================================================
+   PROFILE
+============================================================ */
+
+function editProfile() {
+
+    openModal(
+        "Edit Profile",
+        `
+
+        <div class="field">
+            <label>Full Name</label>
+
+            <input
+                id="modalProfileName"
+                value="${escapeHTML(state.profile.name)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Admission Number</label>
+
+            <input
+                id="modalProfileAdmission"
+                value="${escapeHTML(state.profile.admission)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Email</label>
+
+            <input
+                id="modalProfileEmail"
+                type="email"
+                value="${escapeHTML(state.profile.email)}"
+            >
+        </div>
+
+        <div class="field">
+            <label>Year</label>
+
+            <select id="modalProfileYear">
+                <option>Year 1</option>
+                <option>Year 2</option>
+                <option>Year 3</option>
+                <option>Year 4</option>
+            </select>
+        </div>
+
+        `,
+        () => {
+
+            state.profile.name =
+                $("#modalProfileName").value.trim();
+
+            state.profile.admission =
+                $("#modalProfileAdmission").value.trim();
+
+            state.profile.email =
+                $("#modalProfileEmail").value.trim();
+
+            state.profile.year =
+                $("#modalProfileYear").value;
+
+            if (
+                !state.profile.name ||
+                !state.profile.admission
+            ) {
+
+                showToast(
+                    "Name and admission number are required.",
+                    "error"
+                );
+
+                return false;
+            }
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Profile updated.",
+                "success"
+            );
+
+            return true;
+        }
+    );
+
+
+    $("#modalProfileYear").value =
+        state.profile.year;
+}
+
+
+/* ============================================================
+   BACKUP / RESTORE
+============================================================ */
+
+function exportData() {
+
+    try {
+
+        const payload = {
+
+            app: "AMOS STUDENT HUB",
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            data: state
+
+        };
+
+        const blob =
+            new Blob(
+                [
+                    JSON.stringify(
+                        payload,
+                        null,
+                        2
+                    )
+                ],
+                {
+                    type: "application/json"
+                }
+            );
+
+        const url =
+            URL.createObjectURL(blob);
+
+        const anchor =
+            document.createElement("a");
+
+        anchor.href = url;
+
+        anchor.download =
+            `amos-student-hub-backup-${new Date()
+                .toISOString()
+                .slice(0, 10)}.json`;
+
+        document.body.appendChild(anchor);
+
+        anchor.click();
+
+        anchor.remove();
+
+        URL.revokeObjectURL(url);
+
+        showToast(
+            "Hub data exported successfully.",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showToast(
+            "Could not export your data.",
+            "error"
+        );
+    }
+}
+
+
+function importData(file) {
+
+    if (!file) {
+        return;
+    }
+
+    const reader =
+        new FileReader();
+
+    reader.onload = event => {
+
+        try {
+
+            const payload =
+                JSON.parse(
+                    event.target.result
+                );
+
+            if (
+                !payload ||
+                payload.app !== "AMOS STUDENT HUB" ||
+                !payload.data
+            ) {
+
+                throw new Error(
+                    "Invalid AMOS STUDENT HUB backup file."
+                );
+            }
+
+            state = {
+                ...cloneDefaultData(),
+                ...payload.data,
+                profile: {
+                    ...DEFAULT_DATA.profile,
+                    ...(payload.data.profile || {})
+                }
+            };
+
+            saveData();
+
+            renderAll();
+
+            showToast(
+                "Hub data restored successfully.",
+                "success"
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+            showToast(
+                "The selected file is not a valid AMOS STUDENT HUB backup.",
+                "error"
+            );
+
+        }
+
+    };
+
+    reader.onerror = () => {
+
+        showToast(
+            "Could not read the selected file.",
+            "error"
+        );
+
+    };
+
+    reader.readAsText(file);
+}
+
+
+/* ============================================================
+   SETTINGS
+============================================================ */
+
+function toggleTheme() {
+
+    document.body.classList.toggle("dark");
+
+    const dark =
+        document.body.classList.contains("dark");
+
+    localStorage.setItem(
+        "amos_theme",
+        dark ? "dark" : "light"
+    );
+}
+
+
+function loadTheme() {
+
+    const theme =
+        localStorage.getItem("amos_theme");
+
+    if (theme === "dark") {
+        document.body.classList.add("dark");
+    }
+}
+
+
+function resetData() {
+
+    const confirmed =
+        confirm(
+            "This will remove your locally stored timetable changes, notes, groups, announcements, resources and transcript records. Continue?"
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+    state =
+        cloneDefaultData();
+
+    saveData();
+
+    renderAll();
+
+    showToast(
+        "Local hub data has been reset.",
+        "success"
+    );
+}
+
+
+/* ============================================================
+   UTILITY FUNCTIONS
+============================================================ */
+
+function formatDate(dateString) {
+
+    if (!dateString) {
+        return "Unknown date";
+    }
+
+    const date =
+        new Date(`${dateString}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+        return dateString;
+    }
+
+    return date.toLocaleDateString(
+        "en-KE",
+        {
+            day: "numeric",
+            month: "short",
+            year: "numeric"
+        }
+    );
+}
+
+
+function formatTime(time24) {
+
+    const [hours, minutes] =
+        time24.split(":").map(Number);
+
+    const suffix =
+        hours >= 12 ? "PM" : "AM";
+
+    const hour =
+        hours % 12 || 12;
+
+    return `${hour}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+
+function formatTimeRange(start, end) {
+
+    return `${formatTime(start)} – ${formatTime(end)}`;
+}
+
+
+function showToast(message, type = "success") {
+
+    const container =
+        $("#toastContainer");
+
+    const toast =
+        document.createElement("div");
+
+    toast.className =
+        `toast ${type}`;
+
+    toast.textContent =
+        message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(10px)";
+
+        setTimeout(
+            () => toast.remove(),
+            250
+        );
+
+    }, 3500);
+}
+
+
+/* ============================================================
+   RENDER EVERYTHING
+============================================================ */
+
+function renderAll() {
+
+    try {
+
+        renderDashboard();
+        renderTimetable();
+        renderUnits();
+        renderNotes();
+        renderResources();
+        renderTranscripts();
+        renderAnnouncements();
+        renderGroups();
+        renderProfile();
+        updateClock();
+
+    } catch (error) {
+
+        console.error(
+            "Rendering error:",
+            error
+        );
+
+        showToast(
+            "A dashboard rendering error occurred.",
+            "error"
+        );
+    }
+}
+
+
+/* ============================================================
+   EVENT LISTENERS
+============================================================ */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        loadTheme();
+
+        updateClock();
+
+        setInterval(
+            updateClock,
+            30000
+        );
+
+        setInterval(
+            renderNextClass,
+            60000
+        );
+
+
+        /* LOGIN */
+
+        $("#loginForm")
+            .addEventListener(
+                "submit",
+                event => {
+
+                    event.preventDefault();
+
+                    login();
+
+                }
+            );
+
+
+        $("#togglePassword")
+            .addEventListener(
+                "click",
+                () => {
+
+                    const input =
+                        $("#loginPassword");
+
+                    const button =
+                        $("#togglePassword");
+
+                    if (
+                        input.type === "password"
+                    ) {
+
+                        input.type = "text";
+                        button.textContent = "Hide";
+
+                    } else {
+
+                        input.type = "password";
+                        button.textContent = "Show";
+
+                    }
+
+                }
+            );
+
+
+        /* NAVIGATION */
+
+        document
+            .querySelectorAll(
+                ".nav-link[data-section]"
+            )
+            .forEach(button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        navigateTo(
+                            button.dataset.section
+                        );
+
+                    }
+                );
+
+            });
+
+
+        document
+            .querySelectorAll(
+                "[data-section]:not(.nav-link)"
+            )
+            .forEach(button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        const section =
+                            button.dataset.section;
+
+                        if (section) {
+                            navigateTo(section);
+                        }
+
+                    }
+                );
+
+            });
+
+
+        /* MOBILE MENU */
+
+        $("#mobileMenu")
+            .addEventListener(
+                "click",
+                () => {
+
+                    $("#sidebar")
+                        .classList.toggle("open");
+
+                }
+            );
+
+
+        /* LOGOUT */
+
+        $("#logoutBtn")
+            .addEventListener(
+                "click",
+                logout
+            );
+
+
+        /* THEME */
+
+        $("#themeToggle")
+            .addEventListener(
+                "click",
+                toggleTheme
+            );
+
+        $("#settingsThemeBtn")
+            .addEventListener(
+                "click",
+                toggleTheme
+            );
+
+
+        /* MODAL */
+
+        $("#modalClose")
+            .addEventListener(
+                "click",
+                closeModal
+            );
+
+        $("#modalCancel")
+            .addEventListener(
+                "click",
+                closeModal
+            );
+
+        $("#modalSave")
+            .addEventListener(
+                "click",
+                saveModal
+            );
+
+        $("#modalOverlay")
+            .addEventListener(
+                "click",
+                event => {
+
+                    if (
+                        event.target ===
+                        $("#modalOverlay")
+                    ) {
+
+                        closeModal();
+
+                    }
+
+                }
+            );
+
+
+        /* CRUD BUTTONS */
+
+        $("#addClassBtn")
+            .addEventListener(
+                "click",
+                addClass
+            );
+
+        $("#addNoteBtn")
+            .addEventListener(
+                "click",
+                addNote
+            );
+
+        $("#addResourceBtn")
+            .addEventListener(
+                "click",
+                addResource
+            );
+
+        $("#addAnnouncementBtn")
+            .addEventListener(
+                "click",
+                addAnnouncement
+            );
+
+        $("#addGroupBtn")
+            .addEventListener(
+                "click",
+                addGroup
+            );
+
+        $("#addTranscriptBtn")
+            .addEventListener(
+                "click",
+                addTranscript
+            );
+
+        $("#editProfileBtn")
+            .addEventListener(
+                "click",
+                editProfile
+            );
+
+
+        /* SETTINGS */
+
+        $("#exportDataBtn")
+            .addEventListener(
+                "click",
+                exportData
+            );
+
+        $("#importDataInput")
+            .addEventListener(
+                "change",
+                event => {
+
+                    const file =
+                        event.target.files?.[0];
+
+                    importData(file);
+
+                    event.target.value = "";
+
+                }
+            );
+
+        $("#resetDataBtn")
+            .addEventListener(
+                "click",
+                resetData
+            );
+
+
+        /*
+         * If the user already authenticated during this
+         * browser session, open the application directly.
+         */
+
+        if (isLoggedIn()) {
+
+            showApplication();
+
+        }
+
+    }
+);
+
+
+/* ============================================================
+   EXPOSE CRUD FUNCTIONS FOR INLINE BUTTONS
+============================================================ */
+
+window.editClass = editClass;
+window.deleteClass = deleteClass;
+
+window.viewNote = viewNote;
+window.editNote = editNote;
+window.deleteNote = deleteNote;
+
+window.editResource = editResource;
+window.deleteResource = deleteResource;
+
+window.editAnnouncement = editAnnouncement;
+window.deleteAnnouncement = deleteAnnouncement;
+
+window.editGroup = editGroup;
+window.deleteGroup = deleteGroup;
+
+window.editTranscript = editTranscript;
+window.deleteTranscript = deleteTranscript;
